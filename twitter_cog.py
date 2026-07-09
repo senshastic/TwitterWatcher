@@ -26,6 +26,7 @@ DEFAULT_GUILD_CONFIG = {
     "channel_id": None,
     "accounts": [],
     "account_roles": {},
+    "account_channels": {},
 }
 
 
@@ -50,6 +51,7 @@ def guild_config(config: dict, guild_id: int) -> dict:
         config[key] = dict(DEFAULT_GUILD_CONFIG)
         config[key]["accounts"] = []
         config[key]["account_roles"] = {}
+        config[key]["account_channels"] = {}
     return config[key]
 
 
@@ -241,11 +243,8 @@ class TwitterCog(commands.Cog):
 
         for guild_id_str, gcfg in self.config.items():
             channel_id = gcfg.get("channel_id")
-            if not channel_id:
-                continue
-
-            channel = self.bot.get_channel(int(channel_id))
-            if channel is None:
+            account_channels = gcfg.get("account_channels", {})
+            if not channel_id and not account_channels:
                 continue
 
             guild_seen = set(self.seen.get(guild_id_str, []))
@@ -274,6 +273,13 @@ class TwitterCog(commands.Cog):
                 if guild_id_str not in self.seeded:
                     for t in tweets:
                         guild_seen.add(t["id"])
+                    continue
+
+                target_channel_id = account_channels.get(account, channel_id)
+                if not target_channel_id:
+                    continue
+                channel = self.bot.get_channel(int(target_channel_id))
+                if channel is None:
                     continue
 
                 for tweet in reversed(new_tweets):
@@ -354,6 +360,7 @@ class TwitterCog(commands.Cog):
             return
         gcfg["accounts"].remove(account)
         gcfg.get("account_roles", {}).pop(account, None)
+        gcfg.get("account_channels", {}).pop(account, None)
         save_config(self.config)
         await interaction.response.send_message(f"Stopped watching `@{account}`.")
 
@@ -410,6 +417,35 @@ class TwitterCog(commands.Cog):
             return
         save_config(self.config)
         await interaction.response.send_message(f"Removed role ping for `@{account}`.")
+
+    @app_commands.command(name="twitter-setaccountchannel", description="Post tweets from a specific account to a different channel")
+    @app_commands.describe(account="Twitter username", channel="Channel to post this account's tweets to")
+    async def twitter_setaccountchannel(self, interaction: discord.Interaction, account: str, channel: discord.TextChannel):
+        if not is_mod(interaction):
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+        account = account.lstrip("@")
+        gcfg = guild_config(self.config, interaction.guild_id)
+        if account not in gcfg["accounts"]:
+            await interaction.response.send_message(f"`@{account}` is not being watched. Add it first with `/twitter-add`.", ephemeral=True)
+            return
+        gcfg.setdefault("account_channels", {})[account] = channel.id
+        save_config(self.config)
+        await interaction.response.send_message(f"`@{account}` tweets will now be posted to {channel.mention}.")
+
+    @app_commands.command(name="twitter-removeaccountchannel", description="Stop overriding the channel for a specific account")
+    @app_commands.describe(account="Twitter username")
+    async def twitter_removeaccountchannel(self, interaction: discord.Interaction, account: str):
+        if not is_mod(interaction):
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+        account = account.lstrip("@")
+        gcfg = guild_config(self.config, interaction.guild_id)
+        if gcfg.get("account_channels", {}).pop(account, None) is None:
+            await interaction.response.send_message(f"`@{account}` has no channel override.", ephemeral=True)
+            return
+        save_config(self.config)
+        await interaction.response.send_message(f"`@{account}` will now post to the default channel.")
 
     @app_commands.command(name="twitter-status", description="Show RivalsRelay status and config")
     async def twitter_status(self, interaction: discord.Interaction):

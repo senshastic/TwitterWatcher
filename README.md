@@ -82,6 +82,8 @@ All commands require **Manage Server** permission or the configured `MOD_ROLE_ID
 | `/twitter-setchannel` | Set the current channel as the tweet output channel |
 | `/twitter-setrole <account> <role>` | Ping a role when a specific account tweets |
 | `/twitter-removerole <account>` | Remove the role ping for an account |
+| `/twitter-setaccountchannel <account> <channel>` | Post a specific account's tweets to a different channel than the guild default |
+| `/twitter-removeaccountchannel <account>` | Remove the channel override, falling back to the guild default |
 | `/twitter-status` | Show current bot configuration |
 
 ## Data Files
