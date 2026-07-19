@@ -9,6 +9,7 @@ import socket
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
+from typing import Optional
 
 import discord
 import feedparser
@@ -90,7 +91,7 @@ def is_safe_url(url: str) -> bool:
         return False
 
 
-def fetch_og_image(url: str) -> str | None:
+def fetch_og_image(url: str) -> Optional[str]:
     class _Parser(HTMLParser):
         def __init__(self):
             super().__init__()

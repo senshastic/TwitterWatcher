@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import discord
 from discord.ext import commands
@@ -29,17 +30,26 @@ async def load_cogs():
         try:
             await bot.load_extension(cog)
             print(f"Loaded {cog}")
-        except Exception as e:
-            print(f"Failed to load {cog}: {e}")
+        except Exception:
+            print(f"Failed to load {cog}:")
+            traceback.print_exc()
 
 
 @bot.command(name="sync")
 @commands.is_owner()
 async def sync(ctx):
     """Sync slash commands with Discord globally (Owner only)."""
+    tree_commands = bot.tree.get_commands()
+    print(f"Commands in tree before sync: {[c.name for c in tree_commands]}")
+    if not tree_commands:
+        await ctx.send(
+            "Refusing to sync: the local command tree is empty. Syncing now would "
+            "wipe all slash commands from Discord. Check the logs for a cog load "
+            "failure, fix it, then restart the bot before syncing."
+        )
+        print("Sync aborted: tree is empty.")
+        return
     try:
-        tree_commands = bot.tree.get_commands()
-        print(f"Commands in tree before sync: {[c.name for c in tree_commands]}")
         synced = await bot.tree.sync()
         await ctx.send(f"Synced {len(synced)} slash command(s) globally! (tree had {len(tree_commands)})")
         print(f"Synced {len(synced)} commands globally")
